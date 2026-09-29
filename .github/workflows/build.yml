@@ -27,7 +27,7 @@ jobs:
           git clone --depth 1 --recurse-submodules https://github.com/StikDebug/StikJIT.git /tmp/StikJIT
           cd /tmp/StikJIT
           xcodegen generate
-          xcodebuild archive             -scheme StikJIT             -destination 'generic/platform=iOS'             -archivePath /tmp/StikJIT-build/StikJIT             BUILD_LIBRARY_FOR_DISTRIBUTION=YES             SKIP_INSTALL=NO             CODE_SIGNING_ALLOWED=NO
+          xcodebuild archive             -scheme StikJIT             -destination 'generic/platform=iOS'             -archivePath /tmp/StikJIT-build/StikJIT             SKIP_INSTALL=NO             CODE_SIGNING_ALLOWED=NO
           mkdir -p "$GITHUB_WORKSPACE/Vendor"
           xcodebuild -create-xcframework             -framework /tmp/StikJIT-build/StikJIT.xcarchive/Products/Library/Frameworks/StikJIT.framework             -output "$GITHUB_WORKSPACE/Vendor/StikJIT.xcframework"
 
@@ -56,4 +56,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="build-${{ github.run_number }}"
-          gh release create "$TAG" VectorJITStandalone-unsigned.ipa             --title "VectorJIT Standalone $TAG"             --notes "Independent VectorJIT build. Imports pairing records byte-for-byte and uses StikJIT directly to prepare DDI and enable JIT for a target PID."             --prerelease
+          gh release create "$TAG" VectorJITStandalone-unsigned.ipa             --title "VectorJIT Standalone $TAG"             --notes "Independent VectorJIT build. Pairing files are copied byte-for-byte; StikJIT handles the RSD tunnel, DDI preparation, and JIT request."             --prerelease
