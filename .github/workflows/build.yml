@@ -22,14 +22,27 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      - name: Build StikJIT XCFramework
+      - name: Build JIT core with collision-free module name
         run: |
           git clone --depth 1 --recurse-submodules https://github.com/StikDebug/StikJIT.git /tmp/StikJIT
           cd /tmp/StikJIT
+
+          # Upstream has a module named StikJIT and a public enum also named StikJIT.
+          # Current Xcode emits ambiguous .swiftinterface references for that combination.
+          # Rename ONLY the framework/module target; public API enum StikJIT stays untouched.
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("project.yml")
+          s = p.read_text()
+          s = s.replace("StikJIT", "VectorJITCore")
+          p.write_text(s)
+          PY
+
           xcodegen generate
-          xcodebuild archive             -scheme StikJIT             -destination 'generic/platform=iOS'             -archivePath /tmp/StikJIT-build/StikJIT             SKIP_INSTALL=NO             CODE_SIGNING_ALLOWED=NO
+          xcodebuild archive             -scheme VectorJITCore             -destination 'generic/platform=iOS'             -archivePath /tmp/VectorJITCore-build/VectorJITCore             SKIP_INSTALL=NO             CODE_SIGNING_ALLOWED=NO
+
           mkdir -p "$GITHUB_WORKSPACE/Vendor"
-          xcodebuild -create-xcframework             -framework /tmp/StikJIT-build/StikJIT.xcarchive/Products/Library/Frameworks/StikJIT.framework             -output "$GITHUB_WORKSPACE/Vendor/StikJIT.xcframework"
+          xcodebuild -create-xcframework             -framework /tmp/VectorJITCore-build/VectorJITCore.xcarchive/Products/Library/Frameworks/VectorJITCore.framework             -output "$GITHUB_WORKSPACE/Vendor/VectorJITCore.xcframework"
 
       - name: Generate VectorJIT project
         run: xcodegen generate
@@ -56,4 +69,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="build-${{ github.run_number }}"
-          gh release create "$TAG" VectorJITStandalone-unsigned.ipa             --title "VectorJIT Standalone $TAG"             --notes "Independent VectorJIT build. Pairing files are copied byte-for-byte; StikJIT handles the RSD tunnel, DDI preparation, and JIT request."             --prerelease
+          gh release create "$TAG" VectorJITStandalone-unsigned.ipa             --title "VectorJIT Standalone $TAG"             --notes "Independent VectorJIT build. Pairing records are preserved byte-for-byte. Uses a collision-free VectorJITCore module built from upstream StikJIT source."             --prerelease

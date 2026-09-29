@@ -14,7 +14,7 @@ targets:
     info:
       path: VectorJITStandalone/Info.plist
     dependencies:
-      - framework: Vendor/StikJIT.xcframework
+      - framework: Vendor/VectorJITCore.xcframework
         embed: true
       - sdk: Security.framework
       - sdk: IOKit.framework

@@ -1,5 +1,5 @@
 import Foundation
-import StikJIT
+import VectorJITCore
 
 @MainActor
 final class JITModel: ObservableObject {
