@@ -1,0 +1,59 @@
+name: Build VectorJIT Standalone IPA
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Build StikJIT XCFramework
+        run: |
+          git clone --depth 1 --recurse-submodules https://github.com/StikDebug/StikJIT.git /tmp/StikJIT
+          cd /tmp/StikJIT
+          xcodegen generate
+          xcodebuild archive             -scheme StikJIT             -destination 'generic/platform=iOS'             -archivePath /tmp/StikJIT-build/StikJIT             BUILD_LIBRARY_FOR_DISTRIBUTION=YES             SKIP_INSTALL=NO             CODE_SIGNING_ALLOWED=NO
+          mkdir -p "$GITHUB_WORKSPACE/Vendor"
+          xcodebuild -create-xcframework             -framework /tmp/StikJIT-build/StikJIT.xcarchive/Products/Library/Frameworks/StikJIT.framework             -output "$GITHUB_WORKSPACE/Vendor/StikJIT.xcframework"
+
+      - name: Generate VectorJIT project
+        run: xcodegen generate
+
+      - name: Build unsigned app
+        run: |
+          xcodebuild             -project VectorJITStandalone.xcodeproj             -scheme VectorJITStandalone             -configuration Release             -sdk iphoneos             -destination 'generic/platform=iOS'             -derivedDataPath build             CODE_SIGNING_ALLOWED=NO             CODE_SIGNING_REQUIRED=NO             build
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -print -quit)
+          test -n "$APP"
+          cp -R "$APP" Payload/
+          zip -qry VectorJITStandalone-unsigned.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VectorJITStandalone-unsigned
+          path: VectorJITStandalone-unsigned.ipa
+
+      - name: Publish prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="build-${{ github.run_number }}"
+          gh release create "$TAG" VectorJITStandalone-unsigned.ipa             --title "VectorJIT Standalone $TAG"             --notes "Independent VectorJIT build. Imports pairing records byte-for-byte and uses StikJIT directly to prepare DDI and enable JIT for a target PID."             --prerelease
